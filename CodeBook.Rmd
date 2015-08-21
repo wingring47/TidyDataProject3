@@ -1,0 +1,101 @@
+---
+title: "CodeBook.md"
+output: html_document
+---
+
+## Project Description
+The purpose of this project is to demonstrate your ability to collect, work with, and clean a data set. The goal is to prepare tidy data that can be used for later analysis. You will be graded by your peers on a series of yes/no questions related to the project. You will be required to submit: 1) a tidy data set as described below, 2) a link to a Github repository with your script for performing the analysis, and 3) a code book that describes the variables, the data, and any transformations or work that you performed to clean up the data called CodeBook.md. You should also include a README.md in the repo with your scripts. This repo explains how all of the scripts work and how they are connected.  
+
+One of the most exciting areas in all of data science right now is wearable computing - see for example this article . Companies like Fitbit, Nike, and Jawbone Up are racing to develop the most advanced algorithms to attract new users. The data linked to from the course website represent data collected from the accelerometers from the Samsung Galaxy S smartphone. A full description is available at the site where the data was obtained: 
+
+http://archive.ics.uci.edu/ml/datasets/Human+Activity+Recognition+Using+Smartphones 
+
+Here are the data for the project: 
+
+https://d396qusza40orc.cloudfront.net/getdata%2Fprojectfiles%2FUCI%20HAR%20Dataset.zip 
+
+You should create one R script called run_analysis.R that does the following. 
+1.Merges the training and the test sets to create one data set.
+2.Extracts only the measurements on the mean and standard deviation for each measurement. 
+3.Uses descriptive activity names to name the activities in the data set
+4.Appropriately labels the data set with descriptive variable names. 
+5.From the data set in step 4, creates a second, independent tidy data set with the average of each variable for each activity and each subject.
+
+Good luck!
+
+## Step 1: Merges the training and the test sets to create one data set.
+download Data 
+```{r}
+if(!file.exists("HumanSmartphone.zip")){
+url= "http://d396qusza40orc.cloudfront.net/getdata%2Fprojectfiles%2FUCI%20HAR%20Dataset.zip"
+download.file(url, destfile="HumanSmartphone.zip")
+unzip("HumanSmartphone.zip")}
+```
+read relevant datasets into dataframes
+```{r}
+features <- read.table("UCI HAR Dataset/features.txt")
+activityLables <- read.table("UCI HAR Dataset/activity_labels.txt")
+train_subject <- read.table("UCI HAR Dataset/train/subject_train.txt")
+train_X <- read.table("UCI HAR Dataset/train/X_train.txt")
+train_Y <- read.table("UCI HAR Dataset/train/Y_train.txt")
+test_subject <- read.table("UCI HAR Dataset/test/subject_test.txt")
+test_X <- read.table("UCI HAR Dataset/test/X_test.txt")
+test_Y <- read.table("UCI HAR Dataset/test/Y_test.txt")
+```
+add column names for both train and test datasets by direct naming and using names in the "features"" dataframe
+```{r}
+colnames(activityLables)<-c("activeID", "activeType")
+colnames(train_subject)<-"subjectID"
+colnames(test_subject)<-"subjectID"
+colnames(train_X) <- features[, 2]
+colnames(test_X) <- features[, 2]
+colnames(train_Y) <-"activeID"
+colnames(test_Y) <-"activeID"
+```
+bind columns of both TrainData and TestData by subject and activities
+```{r}
+TrainData <- cbind(train_subject, train_X, train_Y)
+TestData <- cbind(test_subject, test_X, test_Y)
+```
+bind the row of both tran and test subsets to get the full dataset
+```{r}
+AllData <- rbind(TrainData, TestData)
+```
+## step 2: Extracts only the measurements on the mean and standard deviation for each measurement. 
+get the column names and define a logical vector to filter only the mean and std measurements with retaining the subjectsID and active ID
+```{r}
+colNames<- colnames(AllData)
+logicalFilter <- grepl("subjectID", colNames)|
+        grepl("activeID", colNames)|
+        grepl("..mean()", colNames)|
+        grepl("..std()", colNames)
+FinalData<-AllData[logicalFilter==TRUE]
+```
+## step 3: Uses descriptive activity names to name the activities in the data set
+merge the activity type in the activityLables dataframe into the Finaldata data frame
+```{r}
+FinalData <- merge(FinalData,activityLables, by='activeID',all.x=TRUE )
+FcolNames<- colnames(FinalData)
+```
+##step 4:Appropriately labels the data set with descriptive variable names. 
+extend all the abbreviations into full name which make sense
+```{r}
+for (i in 1:length(FcolNames)) 
+{
+        FcolNames[i] = gsub("-std","STDDEV",FcolNames[i])
+        FcolNames[i] = gsub("-mean","Mean",FcolNames[i])
+        FcolNames[i] = gsub("^(t)","Time",FcolNames[i])
+        FcolNames[i] = gsub("^(f)","Freq",FcolNames[i])
+        FcolNames[i] = gsub("[Mm]ag","Magnitude",FcolNames[i])
+        FcolNames[i] = gsub("\\()","",FcolNames[i])
+};
+colnames(FinalData) <- FcolNames
+```
+## Step 5: From the data set in step 4, creates a second, independent tidy data set with the average of each variable for each activity and each subject.
+define colnames without activeType so that when aggregating activeID and subjectID, it will not be averaged, write the tidydata.txt
+```{r}
+noactivenames <- colnames(FinalData)!="activeType"
+subjectMean <- aggregate(FinalData[, noactivenames], by=list(FinalData$subjectID,FinalData$activeID ), FUN=mean)
+tidydata<-merge(subjectMean, activityLables, by="activeID", all.x=TRUE)
+write.table(tidydata, './tidydata.txt', row.names=TRUE)
+```

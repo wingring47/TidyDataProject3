@@ -1,0 +1,7 @@
+---
+title: "README.md"
+output: html_document
+---
+
+run_analysis.R is the script execute all steps of analysis
+detail steps are shown in CodeBook.Rmd
